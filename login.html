@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Вход</title>
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+
+<body class="auth-body">
+    <div class="auth-container">
+        <div class="auth-card">
+            <div class="auth-header">
+                <h1>Nexus</h1>
+                <p>Интеллектуальное пространство для совместной работы</p>
+            </div>
+
+            <div class="auth-tabs">
+                <button class="tab-btn active" data-tab="login">Вход</button>
+                <button class="tab-btn" data-tab="register">Регистрация</button>
+            </div>
+
+            <!-- Форма входа -->
+            <form id="loginForm" class="auth-form active">
+                <div class="form-group">
+                    <input type="email" id="loginEmail" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="loginPassword" placeholder="Пароль" required>
+                </div>
+                <button type="submit" class="btn-primary btn-full">Войти</button>
+            </form>
+
+            <!-- Форма регистрации -->
+            <form id="registerForm" class="auth-form">
+                <div class="form-group">
+                    <input type="text" id="registerName" placeholder="Имя" required>
+                </div>
+                <div class="form-group">
+                    <input type="email" id="registerEmail" placeholder="Email" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="registerPassword" placeholder="Пароль" required>
+                </div>
+                <div class="form-group">
+                    <input type="password" id="registerConfirmPassword" placeholder="Подтвердите пароль" required>
+                </div>
+                <button type="submit" class="btn-primary btn-full">Зарегистрироваться</button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Продолжая, вы соглашаетесь с нашими Условиями использования</p>
+            </div>
+            <div class="auth-test">
+                <hr>
+                <p style="text-align: center; margin: 1rem 0; color: var(--text-secondary);">
+                    Или войдите под тестовым пользователем
+                </p>
+                <button type="button" id="testUserBtn" class="btn-secondary btn-full">
+                    🔧 Войти как тестовый пользователь
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/auth.js"></script>
+</body>
+
+</html>

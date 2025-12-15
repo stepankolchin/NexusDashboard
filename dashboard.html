@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Рабочая доска</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="dashboard-body">
+    <!-- Панель инструментов -->
+    <div class="toolbar">
+        <div class="toolbar-left">
+            <a href="index.html" class="btn-secondary">← Мои доски</a>
+            <div class="history-controls">
+                <button class="btn-icon" id="undoBtn" title="Отменить (Ctrl+Z)" disabled>
+                    <span>↶</span>
+                </button>
+                <button class="btn-icon" id="redoBtn" title="Повторить (Ctrl+Y)" disabled>
+                    <span>↷</span>
+                </button>
+            </div>
+            <h2 id="boardTitle">Новая доска</h2>
+        </div>
+        <div class="toolbar-center">
+            <div class="tool-group">
+                <button class="tool-btn" data-tool="select">✓</button>
+                <button class="tool-btn" data-tool="rectangle">□</button>
+                <button class="tool-btn" data-tool="circle">○</button>
+                <button class="tool-btn" data-tool="text">T</button>
+                <button class="tool-btn" data-tool="line">―</button>
+            </div>
+        </div>
+        <div class="toolbar-right">
+            <button class="btn-secondary" id="aiAssistantBtn">AI Помощник</button>
+            <button class="btn-primary" id="shareBtn">Поделиться</button>
+            <div class="user-avatar" id="userAvatar">U</div>
+        </div>
+    </div>
+
+    <!-- Основной канвас -->
+    <div class="canvas-container">
+        <div class="canvas" id="mainCanvas">
+            <!-- Объекты доски будут рендериться здесь -->
+            <div class="canvas-background"></div>
+        </div>
+        
+        <!-- Миникарта -->
+        <div class="minimap" id="minimap">
+            <div class="minimap-viewport" id="minimapViewport"></div>
+        </div>
+    </div>
+
+    <!-- Боковая панель для AI и свойств -->
+    <div class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3>AI Помощник</h3>
+            <button class="close-sidebar" onclick="toggleSidebar()">×</button>
+        </div>
+        <div class="sidebar-content">
+            <div class="ai-chat">
+                <div class="ai-message">
+                    <p>Привет! Я могу помочь вам создать диаграмму, организовать мысли или сгенерировать контент. Что вам нужно?</p>
+                </div>
+                <div class="chat-input">
+                    <input type="text" placeholder="Спросите AI...">
+                    <button>→</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/dashboard.js"></script>
+</body>
+</html>
+

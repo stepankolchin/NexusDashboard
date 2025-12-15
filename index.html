@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nexus - Ваши доски</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Nexus</h1>
+        </div>
+        <div class="nav-actions">
+            <button id="createBoardBtn" class="btn-primary">+ Новая доска</button>
+            <div class="user-menu">
+                <span id="userName">Гость</span>
+                <div class="dropdown">
+                    <a href="#" id="logoutBtn">Выйти</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="boards-header">
+            <h2>Мои доски</h2>
+            <div class="search-box">
+                <input type="text" id="searchBoards" placeholder="Поиск досок...">
+            </div>
+        </div>
+
+        <div class="boards-grid" id="boardsGrid">
+            <!-- Доски будут загружаться через JS -->
+            <div class="loading">Загрузка ваших досок...</div>
+        </div>
+    </main>
+
+    <!-- Модальное окно создания доски -->
+    <div id="createBoardModal" class="modal">
+        <div class="modal-content">
+            <h3>Создать новую доску</h3>
+            <form id="createBoardForm">
+                <input type="text" id="boardTitle" placeholder="Название доски" required>
+                <textarea id="boardDescription" placeholder="Описание (необязательно)"></textarea>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('createBoardModal')">Отмена</button>
+                    <button type="submit" class="btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
