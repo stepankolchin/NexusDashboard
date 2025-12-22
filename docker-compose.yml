@@ -1,0 +1,37 @@
+version: '3.8'
+
+services:
+  # Nexus Backend API
+  nexus-backend:
+    build: .
+    ports:
+      - "3001:3001"
+      - "3002:3002"
+    volumes:
+      - .:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - PORT=3001
+      - DATABASE_URL=postgresql://postgres:password@db:5432/nexus_db
+      - JWT_SECRET=your-super-secret-jwt-key-change-this-in-production-123456789
+      - FRONTEND_URL=http://localhost:3000
+    depends_on:
+      - db
+    command: npm run dev
+
+  # PostgreSQL Database
+  db:
+    image: postgres:15-alpine
+    environment:
+      - POSTGRES_DB=nexus_db
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./database_schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+
+volumes:
+  postgres_data:

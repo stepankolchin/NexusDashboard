@@ -22,31 +22,31 @@
             <h2 id="boardTitle">Новая доска</h2>
         </div>
         <div class="toolbar-center">
-            <div class="tool-group">
-                <button class="tool-btn" data-tool="select">✓</button>
-                <button class="tool-btn" data-tool="rectangle">□</button>
-                <button class="tool-btn" data-tool="circle">○</button>
-                <button class="tool-btn" data-tool="text">T</button>
-                <button class="tool-btn" data-tool="line">―</button>
-            </div>
         </div>
         <div class="toolbar-right">
             <button class="btn-secondary" id="aiAssistantBtn">AI Помощник</button>
             <button class="btn-primary" id="shareBtn">Поделиться</button>
-            <div class="user-avatar" id="userAvatar">U</div>
+            <div class="user-menu">
+                <div class="user-avatar" id="userAvatar">U</div>
+                <div class="dropdown-menu" id="userDropdown">
+                    <a href="#" id="logoutBtn">Выйти</a>
+                </div>
+            </div>
         </div>
     </div>
 
-    <!-- Основной канвас -->
     <div class="canvas-container">
-        <div class="canvas" id="mainCanvas">
-            <!-- Объекты доски будут рендериться здесь -->
-            <div class="canvas-background"></div>
-        </div>
-        
-        <!-- Миникарта -->
+        <canvas class="canvas" id="mainCanvas">
+        </canvas>
+        <div class="canvas-background"></div>
         <div class="minimap" id="minimap">
             <div class="minimap-viewport" id="minimapViewport"></div>
+        </div>
+        <div class="ui-panels">
+            <div class="ui-panel toolbar-panel" id="toolbar-container"></div>
+            <div class="ui-panel properties-panel" id="properties-container"></div>
+            <div class="ui-panel layer-panel" id="layer-container"></div>
+            <div class="ui-panel history-panel" id="history-container"></div>
         </div>
     </div>
 
@@ -70,6 +70,10 @@
     </div>
 
     <script src="js/api.js"></script>
+    <script src="js/element-types.js"></script>
+    <script src="js/layer-manager.js"></script>
+    <script src="js/ui-panels.js"></script>
+    <script src="js/extended-whiteboard.js"></script>
     <script src="js/dashboard.js"></script>
 </body>
 </html>

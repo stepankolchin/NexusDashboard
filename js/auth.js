@@ -8,11 +8,9 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', () => {
             const tab = btn.dataset.tab;
             
-            // Активируем кнопку
             tabBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // Показываем соответствующую форму
             document.querySelectorAll('.auth-form').forEach(form => {
                 form.classList.remove('active');
             });
@@ -23,23 +21,63 @@ document.addEventListener('DOMContentLoaded', function() {
     // Обработка входа
     loginForm.addEventListener('submit', async (e) => {
         e.preventDefault();
-        
+
         const email = document.getElementById('loginEmail').value;
         const password = document.getElementById('loginPassword').value;
-        
-        // const result = await api.login(email, password);
-        
-        // if (result.success) {
-            // Сохраняем данные пользователя
-            localStorage.setItem('user', JSON.stringify(result.user));
-            localStorage.setItem('token', 123);//result.token);
-            
-            // Перенаправляем на главную
-            window.location.href = 'index.html';
-        // } else {
-        //     alert('Ошибка входа: ' + (result.error || 'Неверные данные'));
-        // }
+
+
+        try {
+            if (email === 'test@example.com') {
+                localStorage.setItem('user', JSON.stringify({
+                    id: 1,
+                    name: 'Test User',
+                    email: 'test@example.com'
+                }));
+                localStorage.setItem('token', 'test-token');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            const result = await api.login(email, password);
+
+            if (result.success) {
+                // Сохраняем данные пользователя
+                localStorage.setItem('user', JSON.stringify(result.user));
+                localStorage.setItem('token', result.token);
+
+                window.location.href = 'index.html';
+            } else {
+                alert('Ошибка входа: ' + (result.error || 'Неверные данные'));
+            }
+        } catch (error) {
+            console.error('Ошибка входа:', error);
+            alert('Ошибка входа: ' + error.message);
+        }
     });
+
+    // Обработка тестовой кнопки входа
+    const testUserBtn = document.getElementById('testUserBtn');
+    if (testUserBtn) {
+        testUserBtn.addEventListener('click', async () => {
+            try {
+                const result = await api.login('test@example.com', 'test123');
+
+                if (result.success) {
+                    // Сохраняем данные пользователя
+                    localStorage.setItem('user', JSON.stringify(result.user));
+                    localStorage.setItem('token', result.token);
+                    localStorage.setItem('isTestUser', 'true');
+
+                    window.location.href = 'index.html';
+                } else {
+                    alert('Ошибка входа: ' + (result.error || 'Неверные данные'));
+                }
+            } catch (error) {
+                console.error('Ошибка тестового входа:', error);
+                alert('Ошибка входа: ' + error.message);
+            }
+        });
+    }
 
     // Обработка регистрации
     registerForm.addEventListener('submit', async (e) => {
@@ -79,13 +117,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // Сохраняем данные пользователя
     localStorage.setItem('user', JSON.stringify(testUser));
     localStorage.setItem('token', 'test-token-' + Date.now());
-    localStorage.setItem('isTestUser', 'true'); // Помечаем как тестового пользователя
+    localStorage.setItem('isTestUser', 'true');
     
-    // Перенаправляем на главную
     window.location.href = 'index.html';
 });
 
-// Также обновляем проверку авторизации в конце файла:
 // Проверяем, авторизован ли пользователь
 const token = localStorage.getItem('token');
 if (token && window.location.pathname.includes('login.html')) {

@@ -1,30 +1,19 @@
 // Модуль для работы с API - сейчас заглушки
 class ApiService {
     constructor() {
-        this.baseUrl = '/api'; // Будет заменено на реальный URL
+        // Always use full URL to backend API server for consistency
+        this.baseUrl = 'http://localhost:3001/api';
     }
 
     // Авторизация
     async login(email, password) {
-        console.log('Login attempt:', email);
-        // Заглушка - в реальности будет POST запрос
-        return new Promise((resolve) => {
-            setTimeout(() => {
-                resolve({
-                    success: true,
-                    user: {
-                        id: 1,
-                        name: 'Тестовый пользователь',
-                        email: email
-                    },
-                    token: 'fake-jwt-token'
-                });
-            }, 1000);
+        return this.request('/auth/login', {
+            method: 'POST',
+            body: JSON.stringify({ email, password })
         });
     }
 
     async register(userData) {
-        console.log('Register attempt:', userData);
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve({
@@ -167,7 +156,6 @@ async getBoard(boardId) {
     }
     
     async updateBoard(boardId, data) {
-        console.log('Updating board:', boardId, data);
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve({ success: true });
@@ -175,9 +163,229 @@ async getBoard(boardId) {
         });
     }
 
+    async getWorkspaces() {
+        return this.request('/workspaces');
+    }
+
+    async createWorkspace(workspaceData) {
+        return this.request('/workspaces', {
+            method: 'POST',
+            body: JSON.stringify(workspaceData)
+        });
+    }
+
+    async getWorkspace(workspaceId) {
+        return this.request(`/workspaces/${workspaceId}`);
+    }
+
+    async updateWorkspace(workspaceId, workspaceData) {
+        return this.request(`/workspaces/${workspaceId}`, {
+            method: 'PUT',
+            body: JSON.stringify(workspaceData)
+        });
+    }
+
+    async deleteWorkspace(workspaceId) {
+        return this.request(`/workspaces/${workspaceId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async inviteMember(workspaceId, invitationData) {
+        return this.request(`/workspaces/${workspaceId}/invite`, {
+            method: 'POST',
+            body: JSON.stringify(invitationData)
+        });
+    }
+
+    async acceptInvitation(workspaceId, invitationId) {
+        return this.request(`/workspaces/${workspaceId}/invitations/${invitationId}/accept`, {
+            method: 'POST'
+        });
+    }
+
+    async rejectInvitation(workspaceId, invitationId) {
+        return this.request(`/workspaces/${workspaceId}/invitations/${invitationId}/reject`, {
+            method: 'POST'
+        });
+    }
+
+    async updateMemberRole(workspaceId, userId, role) {
+        return this.request(`/workspaces/${workspaceId}/members/${userId}`, {
+            method: 'PUT',
+            body: JSON.stringify({ role })
+        });
+    }
+
+    async removeMember(workspaceId, userId) {
+        return this.request(`/workspaces/${workspaceId}/members/${userId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async transferOwnership(workspaceId, newOwnerId) {
+        return this.request(`/workspaces/${workspaceId}/transfer-ownership`, {
+            method: 'POST',
+            body: JSON.stringify({ newOwnerId })
+        });
+    }
+
+    async getInvitation(token) {
+        return this.request(`/invitations/${token}`);
+    }
+
+    async getBoardElements(boardId, params = {}) {
+        const queryString = new URLSearchParams(params).toString();
+        const url = `/boards/${boardId}/elements${queryString ? `?${queryString}` : ''}`;
+        return this.request(url);
+    }
+
+    async createBoardElement(boardId, elementData) {
+        return this.request(`/boards/${boardId}/elements`, {
+            method: 'POST',
+            body: JSON.stringify(elementData)
+        });
+    }
+
+    async updateBoardElement(boardId, elementId, updates) {
+        return this.request(`/boards/${boardId}/elements/${elementId}`, {
+            method: 'PUT',
+            body: JSON.stringify(updates)
+        });
+    }
+
+    async deleteBoardElement(boardId, elementId) {
+        return this.request(`/boards/${boardId}/elements/${elementId}`, {
+            method: 'DELETE'
+        });
+    }
+
+    async uploadFile(boardId, formData) {
+        const token = localStorage.getItem('token');
+
+        const config = {
+            method: 'POST',
+            body: formData,
+            headers: {}
+        };
+
+        if (token) {
+            config.headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        try {
+            const response = await fetch(`${this.baseUrl}/boards/${boardId}/upload`, config);
+
+            if (!response.ok) {
+                let errorMessage = 'File upload failed';
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.error || errorMessage;
+                } catch (jsonError) {
+                    errorMessage = `HTTP ${response.status}: ${response.statusText}`;
+                }
+                throw new Error(errorMessage);
+            }
+
+            const data = await response.json();
+            return data;
+        } catch (error) {
+            console.error('Ошибка загрузки файла:', error);
+            throw error;
+        }
+    }
+
+    async groupBoardElements(boardId, elementIds, groupProperties = {}) {
+        return this.request(`/boards/${boardId}/elements/group`, {
+            method: 'POST',
+            body: JSON.stringify({ elementIds, groupProperties })
+        });
+    }
+
+    async ungroupBoardElements(boardId, groupId) {
+        return this.request(`/boards/${boardId}/elements/ungroup`, {
+            method: 'POST',
+            body: JSON.stringify({ groupId })
+        });
+    }
+
+    async createBoardSnapshot(boardId, changeType = 'manual') {
+        return this.request(`/boards/${boardId}/snapshot`, {
+            method: 'POST',
+            body: JSON.stringify({ change_type: changeType })
+        });
+    }
+
+    async getBoardHistory(boardId, limit = 50) {
+        return this.request(`/boards/${boardId}/history?limit=${limit}`);
+    }
+
+    async undoBoardAction(boardId) {
+        return this.request(`/boards/${boardId}/undo`, {
+            method: 'POST'
+        });
+    }
+
+    async redoBoardAction(boardId) {
+        return this.request(`/boards/${boardId}/redo`, {
+            method: 'POST'
+        });
+    }
+
+    async uploadBoardFile(boardId, file) {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        return this.request(`/boards/${boardId}/upload`, {
+            method: 'POST',
+            body: formData,
+            headers: {}
+        });
+    }
+
+    async request(endpoint, options = {}) {
+        const token = localStorage.getItem('token');
+        const headers = {
+            'Content-Type': 'application/json',
+            ...options.headers
+        };
+
+        if (token) {
+            headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const config = {
+            ...options,
+            headers
+        };
+
+        try {
+            const response = await fetch(`${this.baseUrl}${endpoint}`, config);
+
+            let data;
+            try {
+                data = await response.json();
+            } catch (jsonError) {
+                data = { error: `HTTP ${response.status}: ${response.statusText}` };
+            }
+
+            if (!response.ok) {
+                if (response.status === 409) {
+                    throw new Error(`HTTP ${response.status}: ${JSON.stringify(data)}`);
+                }
+                const errorMessage = data.error || 'Ошибка API запроса:';
+                throw new Error(errorMessage);
+            }
+
+            return data;
+        } catch (error) {
+            console.error('Ошибка API запроса:', error);
+            throw error;
+        }
+    }
+
     // AI функционал
     async aiGenerate(prompt, context) {
-        console.log('AI request:', prompt, context);
         return new Promise((resolve) => {
             setTimeout(() => {
                 resolve({

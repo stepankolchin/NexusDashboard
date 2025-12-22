@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Рабочие пространства - Nexus</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <h1>Nexus</h1>
+        </div>
+        <div class="nav-actions">
+            <button id="createWorkspaceBtn" class="create-workspace-btn">
+                <span>+</span>
+                Новое пространство
+            </button>
+            <div class="user-menu">
+                <span id="userName">Гость</span>
+                <div class="dropdown">
+                    <a href="#" id="logoutBtn">Выйти</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="boards-header">
+            <h2>Мои рабочие пространства</h2>
+        </div>
+
+        <div class="workspace-list" id="workspaceList">
+            <!-- Рабочие пространства будут загружаться через JS -->
+            <div class="loading">Загрузка рабочих пространств...</div>
+        </div>
+    </main>
+
+    <!-- Модальное окно создания рабочего пространства -->
+    <div id="createWorkspaceModal" class="modal">
+        <div class="modal-content">
+            <h3>Создать новое рабочее пространство</h3>
+            <form id="createWorkspaceForm">
+                <input type="text" id="workspaceName" placeholder="Название пространства" required>
+                <textarea id="workspaceDescription" placeholder="Описание (необязательно)"></textarea>
+                <input type="url" id="workspaceAvatar" placeholder="URL аватара (необязательно)">
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('createWorkspaceModal')">Отмена</button>
+                    <button type="submit" class="btn-primary">Создать</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно действий с рабочим пространством -->
+    <div id="workspaceActionsModal" class="modal">
+        <div class="modal-content">
+            <h3 id="workspaceActionsTitle">Действия с пространством</h3>
+            <div class="workspace-actions">
+                <button id="editWorkspaceBtn" class="btn-secondary">Редактировать</button>
+                <button id="manageMembersBtn" class="btn-secondary">Управление участниками</button>
+                <button id="deleteWorkspaceBtn" class="btn-danger">Удалить пространство</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/workspaces.js"></script>
+</body>
+</html>
+

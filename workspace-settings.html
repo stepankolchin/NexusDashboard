@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Настройки рабочего пространства - Nexus</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/auth.css">
+</head>
+<body>
+    <nav class="navbar">
+        <div class="nav-brand">
+            <a href="workspaces.html">← К рабочим пространствам</a>
+        </div>
+        <div class="nav-actions">
+            <div class="user-menu">
+                <span id="userName">Гость</span>
+                <div class="dropdown">
+                    <a href="#" id="logoutBtn">Выйти</a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        <div class="workspace-settings" id="workspaceSettings">
+            <div class="loading">Загрузка настроек...</div>
+        </div>
+    </main>
+
+    <!-- Модальное окно приглашения участника -->
+    <div id="inviteMemberModal" class="modal">
+        <div class="modal-content">
+            <h3>Пригласить участника</h3>
+            <form id="inviteMemberForm" class="invite-form">
+                <input type="email" id="inviteEmail" placeholder="Email адрес" required>
+                <select id="inviteRole" required>
+                    <option value="viewer">Наблюдатель</option>
+                    <option value="member">Участник</option>
+                    <option value="admin">Администратор</option>
+                </select>
+                <button type="submit">Отправить приглашение</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно изменения роли -->
+    <div id="changeRoleModal" class="modal">
+        <div class="modal-content">
+            <h3>Изменить роль участника</h3>
+            <p id="changeRoleUser">Пользователь: <strong></strong></p>
+            <form id="changeRoleForm">
+                <select id="newRole" required>
+                    <option value="viewer">Наблюдатель</option>
+                    <option value="member">Участник</option>
+                    <option value="admin">Администратор</option>
+                    <option value="owner">Владелец</option>
+                </select>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('changeRoleModal')">Отмена</button>
+                    <button type="submit" class="btn-primary">Изменить</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Модальное окно передачи владения -->
+    <div id="transferOwnershipModal" class="modal">
+        <div class="modal-content">
+            <h3>Передать владение пространством</h3>
+            <p>Вы уверены, что хотите передать владение этим рабочим пространством? После передачи вы станете администратором.</p>
+            <form id="transferOwnershipForm">
+                <select id="newOwner" required>
+                    <!-- Опции будут заполнены через JS -->
+                </select>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="closeModal('transferOwnershipModal')">Отмена</button>
+                    <button type="submit" class="btn-danger">Передать владение</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script src="js/api.js"></script>
+    <script src="js/api.js"></script>
+    <script src="js/workspace-settings.js"></script>
+</body>
+</html>
+
