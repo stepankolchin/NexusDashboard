@@ -28,6 +28,11 @@ class ElementTypes {
                 fillColor: '#ffffff',
                 strokeColor: '#000000',
                 strokeWidth: 2,
+                strokeStyle: 'solid',
+                cornerRadius: 0,
+                opacity: 100,
+                lineCap: 'round',
+                lineJoin: 'round',
                 rotation: 0
             },
             [this.TEXT]: {
@@ -141,9 +146,17 @@ class ElementTypes {
 
         // Сохранение контекста только при необходимости вращения
         const needsRotation = properties.rotation && properties.rotation !== 0;
+        const needsOpacity = typeof properties.opacity === 'number' && properties.opacity < 100;
+
+        if (needsRotation || needsOpacity) {
+            ctx.save();
+        }
+
+        if (needsOpacity) {
+            ctx.globalAlpha = Math.max(0, Math.min(1, properties.opacity / 100));
+        }
 
         if (needsRotation) {
-            ctx.save();
             ctx.translate(properties.x + properties.width / 2, properties.y + properties.height / 2);
             ctx.rotate((properties.rotation * Math.PI) / 180);
             ctx.translate(-(properties.x + properties.width / 2), -(properties.y + properties.height / 2));
@@ -151,7 +164,6 @@ class ElementTypes {
 
         switch (type) {
             case this.SHAPE:
-                console.log('Rendering SHAPE element with properties:', properties);
                 this.renderShape(ctx, properties);
                 break;
             case this.TEXT:
@@ -177,7 +189,7 @@ class ElementTypes {
                 break;
         }
 
-        if (needsRotation) {
+        if (needsRotation || needsOpacity) {
             ctx.restore();
         }
     }
@@ -187,16 +199,43 @@ class ElementTypes {
         const strokeColor = props.strokeColor || '#000000';
         const lineWidth = props.strokeWidth || 2;
         const fillColor = props.fillColor || '#ffffff';
+        const cornerRadius = Math.max(0, Number(props.cornerRadius || 0));
+        const strokeStyle = props.strokeStyle || 'solid';
+        const lineCap = props.lineCap || 'round';
+        const lineJoin = props.lineJoin || 'round';
 
         // Оптимизация: установка свойств только при изменении
         if (ctx.strokeStyle !== strokeColor) ctx.strokeStyle = strokeColor;
         if (ctx.lineWidth !== lineWidth) ctx.lineWidth = lineWidth;
         if (ctx.fillStyle !== fillColor) ctx.fillStyle = fillColor;
+        if (ctx.lineCap !== lineCap) ctx.lineCap = lineCap;
+        if (ctx.lineJoin !== lineJoin) ctx.lineJoin = lineJoin;
+
+        if (strokeStyle === 'dashed') {
+            ctx.setLineDash([8, 6]);
+        } else if (strokeStyle === 'dotted') {
+            ctx.setLineDash([2, 6]);
+        } else {
+            ctx.setLineDash([]);
+        }
 
         switch (props.shape) {
             case this.SHAPES.RECTANGLE:
                 ctx.beginPath();
-                ctx.rect(props.x, props.y, props.width, props.height);
+                if (cornerRadius > 0) {
+                    const r = Math.min(cornerRadius, props.width / 2, props.height / 2);
+                    ctx.moveTo(props.x + r, props.y);
+                    ctx.lineTo(props.x + props.width - r, props.y);
+                    ctx.quadraticCurveTo(props.x + props.width, props.y, props.x + props.width, props.y + r);
+                    ctx.lineTo(props.x + props.width, props.y + props.height - r);
+                    ctx.quadraticCurveTo(props.x + props.width, props.y + props.height, props.x + props.width - r, props.y + props.height);
+                    ctx.lineTo(props.x + r, props.y + props.height);
+                    ctx.quadraticCurveTo(props.x, props.y + props.height, props.x, props.y + props.height - r);
+                    ctx.lineTo(props.x, props.y + r);
+                    ctx.quadraticCurveTo(props.x, props.y, props.x + r, props.y);
+                } else {
+                    ctx.rect(props.x, props.y, props.width, props.height);
+                }
                 ctx.fill();
                 ctx.stroke();
                 break;
@@ -283,6 +322,9 @@ class ElementTypes {
                 // Неизвестный тип фигуры
                 break;
         }
+
+        // Сбрасываем стиль линии после отрисовки фигуры
+        ctx.setLineDash([]);
     }
 
     static renderStar(ctx, props) {

@@ -138,6 +138,17 @@ class ToolbarPanel {
         });
         this.selectedTool = null;
     }
+
+    setSelectedTool(tool, shape = null) {
+        const selector = shape
+            ? `.tool-btn[data-tool="${tool}"][data-shape="${shape}"]`
+            : `.tool-btn[data-tool="${tool}"]`;
+        const toolBtn = this.container.querySelector(selector);
+        if (!toolBtn) return false;
+
+        this.selectTool(toolBtn);
+        return true;
+    }
 }
 
 class PropertiesPanel {
@@ -255,6 +266,38 @@ class PropertiesPanel {
                 <div class="property-row">
                     <label>Stroke Width:</label>
                     <input type="number" class="property-input" data-property="strokeWidth" value="${props.strokeWidth || 2}" min="1" max="20">
+                </div>
+                <div class="property-row">
+                    <label>Stroke Style:</label>
+                    <select class="property-input" data-property="strokeStyle">
+                        <option value="solid" ${props.strokeStyle === 'solid' || !props.strokeStyle ? 'selected' : ''}>Solid</option>
+                        <option value="dashed" ${props.strokeStyle === 'dashed' ? 'selected' : ''}>Dashed</option>
+                        <option value="dotted" ${props.strokeStyle === 'dotted' ? 'selected' : ''}>Dotted</option>
+                    </select>
+                </div>
+                <div class="property-row">
+                    <label>Corner Radius:</label>
+                    <input type="number" class="property-input" data-property="cornerRadius" value="${props.cornerRadius || 0}" min="0" max="200">
+                </div>
+                <div class="property-row">
+                    <label>Opacity:</label>
+                    <input type="number" class="property-input" data-property="opacity" value="${props.opacity || 100}" min="0" max="100">
+                </div>
+                <div class="property-row">
+                    <label>Line Cap:</label>
+                    <select class="property-input" data-property="lineCap">
+                        <option value="round" ${props.lineCap === 'round' || !props.lineCap ? 'selected' : ''}>Round</option>
+                        <option value="butt" ${props.lineCap === 'butt' ? 'selected' : ''}>Butt</option>
+                        <option value="square" ${props.lineCap === 'square' ? 'selected' : ''}>Square</option>
+                    </select>
+                </div>
+                <div class="property-row">
+                    <label>Line Join:</label>
+                    <select class="property-input" data-property="lineJoin">
+                        <option value="round" ${props.lineJoin === 'round' || !props.lineJoin ? 'selected' : ''}>Round</option>
+                        <option value="miter" ${props.lineJoin === 'miter' ? 'selected' : ''}>Miter</option>
+                        <option value="bevel" ${props.lineJoin === 'bevel' ? 'selected' : ''}>Bevel</option>
+                    </select>
                 </div>
             </div>
         `;

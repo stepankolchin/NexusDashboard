@@ -13,6 +13,27 @@
     --text-secondary: #6c757d;
     --border-color: #dee2e6;
     --shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    --grid-dot-color: #b8bfc8;
+    --grid-line-color: #d5dbe3;
+    --canvas-surface: #ffffff;
+    --overlay-surface: #ffffff;
+    --overlay-soft: #f8f9fa;
+}
+
+[data-theme="dark"] {
+    --primary-color: #7f9cff;
+    --secondary-color: #9b7cff;
+    --background-color: #0f141b;
+    --surface-color: #1a222d;
+    --text-primary: #e6ecf5;
+    --text-secondary: #9ca9bb;
+    --border-color: #2d3a4a;
+    --shadow: 0 2px 12px rgba(0, 0, 0, 0.45);
+    --grid-dot-color: #8ea0b7;
+    --grid-line-color: #344455;
+    --canvas-surface: #141b24;
+    --overlay-surface: #1a222d;
+    --overlay-soft: #121821;
 }
 
 body {
@@ -51,8 +72,8 @@ body {
     position: absolute;
     top: 100%;
     right: 0;
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
     border-radius: 4px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     min-width: 120px;
@@ -63,13 +84,13 @@ body {
 .dropdown-menu a {
     display: block;
     padding: 8px 16px;
-    color: #333;
+    color: var(--text-primary);
     text-decoration: none;
     font-size: 14px;
 }
 
 .dropdown-menu a:hover {
-    background-color: #f8f9fa;
+    background-color: var(--background-color);
 }
 
 .dropdown {
@@ -86,6 +107,22 @@ body {
 
 .user-menu:hover .dropdown {
     display: block;
+}
+
+.user-avatar {
+    width: 34px;
+    height: 34px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: #ffffff;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 14px;
+    font-weight: 700;
+    border: 1px solid color-mix(in srgb, var(--primary-color) 70%, #000000 30%);
+    cursor: pointer;
+    user-select: none;
 }
 
 /* Контейнер */
@@ -533,7 +570,7 @@ canvas.canvas:active {
     top: 100%;
     left: 0;
     right: 0;
-    background: white;
+    background: var(--surface-color);
     border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
@@ -870,55 +907,58 @@ canvas.canvas:active {
 /* Extended Whiteboard Styles */
 .canvas-container {
     position: relative;
-    width: calc(100% - 400px); /* Leave space for UI panels */
+    width: 100%;
     height: calc(100vh - 80px);
     background: #f8f9fa;
-    margin-right: 400px; /* Push panels to the right */
+    padding-right: clamp(260px, 28vw, 380px);
+    box-sizing: border-box;
+    overflow: hidden;
 }
 
 #mainCanvas {
     width: 100%;
     height: 100%;
     border: none;
-    background: white;
+    background: var(--canvas-surface);
 }
 
 .ui-panels {
     position: absolute;
-    top: 20px;
-    right: 20px; /* Position from the right instead of left */
+    top: 12px;
+    right: 12px;
     display: flex;
-    flex-direction: column; /* Stack vertically */
-    gap: 20px;
-    width: 350px; /* Fixed width */
+    flex-direction: column;
+    gap: 12px;
+    width: clamp(250px, 26vw, 360px);
+    max-height: calc(100% - 24px);
     z-index: 1000;
 }
 
 .ui-panel {
-    background: white;
-    border: 1px solid #dee2e6;
+    background: var(--overlay-surface);
+    border: 1px solid var(--border-color);
     border-radius: 8px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.15);
     width: 100%;
-    max-height: 300px;
+    max-height: 280px;
     overflow-y: auto;
-    max-width: 300px;
+    max-width: 100%;
 }
 
 .toolbar-panel {
-    max-width: 400px;
+    max-width: 100%;
 }
 
 .properties-panel,
 .layer-panel,
 .history-panel {
-    max-height: 400px;
+    max-height: 260px;
     overflow-y: auto;
 }
 
 .panel-header {
     padding: 12px 16px;
-    border-bottom: 1px solid #dee2e6;
+    border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -942,7 +982,7 @@ canvas.canvas:active {
     margin: 0 0 8px 0;
     font-size: 12px;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -959,22 +999,22 @@ canvas.canvas:active {
     align-items: center;
     justify-content: center;
     padding: 12px 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     border-radius: 6px;
-    background: white;
+    background: var(--overlay-surface);
     cursor: pointer;
     transition: all 0.2s;
     min-height: 60px;
 }
 
 .tool-btn:hover {
-    border-color: #007bff;
-    background: #f8f9ff;
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--overlay-surface));
 }
 
 .tool-btn.selected {
-    border-color: #007bff;
-    background: #007bff;
+    border-color: var(--primary-color);
+    background: var(--primary-color);
     color: white;
 }
 
@@ -996,7 +1036,7 @@ canvas.canvas:active {
     margin: 0 0 8px 0;
     font-size: 12px;
     font-weight: 600;
-    color: #6c757d;
+    color: var(--text-secondary);
     text-transform: uppercase;
     letter-spacing: 0.5px;
 }
@@ -1011,13 +1051,15 @@ canvas.canvas:active {
 .property-row label {
     min-width: 80px;
     font-size: 12px;
-    color: #495057;
+    color: var(--text-primary);
 }
 
 .property-input {
     flex: 1;
     padding: 4px 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
+    background: var(--surface-color);
+    color: var(--text-primary);
     border-radius: 4px;
     font-size: 12px;
 }
@@ -1046,17 +1088,17 @@ canvas.canvas:active {
     gap: 8px;
     padding: 8px 12px;
     cursor: pointer;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
     transition: background-color 0.2s;
 }
 
 .layer-item:hover {
-    background: #f8f9fa;
+    background: var(--overlay-soft);
 }
 
 .layer-item.selected {
-    background: #e3f2fd;
-    border-left: 3px solid #007bff;
+    background: color-mix(in srgb, var(--primary-color) 20%, var(--overlay-surface));
+    border-left: 3px solid var(--primary-color);
 }
 
 .layer-icon {
@@ -1076,18 +1118,18 @@ canvas.canvas:active {
 
 .layer-zindex {
     font-size: 10px;
-    color: #6c757d;
+    color: var(--text-secondary);
 }
 
 .layer-group-indicator {
-    color: #007bff;
+    color: var(--primary-color);
     font-size: 12px;
 }
 
 .no-layers {
     padding: 20px;
     text-align: center;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-size: 12px;
 }
 
@@ -1101,7 +1143,7 @@ canvas.canvas:active {
     align-items: center;
     gap: 8px;
     padding: 8px 12px;
-    border-bottom: 1px solid #f8f9fa;
+    border-bottom: 1px solid var(--border-color);
     font-size: 12px;
 }
 
@@ -1124,20 +1166,20 @@ canvas.canvas:active {
 }
 
 .history-time {
-    color: #6c757d;
+    color: var(--text-secondary);
     font-size: 10px;
 }
 
 .no-history {
     padding: 20px;
     text-align: center;
-    color: #6c757d;
+    color: var(--text-secondary);
     font-size: 12px;
 }
 
 .history-snapshot {
     padding: 12px 16px;
-    border-top: 1px solid #dee2e6;
+    border-top: 1px solid var(--border-color);
     text-align: center;
 }
 
@@ -1163,17 +1205,18 @@ canvas.canvas:active {
 
 .layer-btn {
     padding: 4px 8px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     border-radius: 3px;
-    background: white;
+    background: var(--overlay-surface);
+    color: var(--text-primary);
     cursor: pointer;
     font-size: 11px;
     transition: all 0.2s;
 }
 
 .layer-btn:hover {
-    border-color: #007bff;
-    background: #f8f9ff;
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--overlay-surface));
 }
 
 .layer-btn:disabled {
@@ -1188,17 +1231,18 @@ canvas.canvas:active {
 
 .history-btn {
     padding: 6px 12px;
-    border: 1px solid #dee2e6;
+    border: 1px solid var(--border-color);
     border-radius: 4px;
-    background: white;
+    background: var(--overlay-surface);
+    color: var(--text-primary);
     cursor: pointer;
     font-size: 11px;
     transition: all 0.2s;
 }
 
 .history-btn:hover:not(:disabled) {
-    border-color: #007bff;
-    background: #f8f9ff;
+    border-color: var(--primary-color);
+    background: color-mix(in srgb, var(--primary-color) 12%, var(--overlay-surface));
 }
 
 .history-btn:disabled {
@@ -1206,48 +1250,38 @@ canvas.canvas:active {
     cursor: not-allowed;
 }
 
-/* Responsive adjustments for extended whiteboard */
-@media (max-width: 1200px) {
-    .ui-panels {
-        flex-wrap: wrap;
-        gap: 10px;
+/* Responsive adjustments for extended whiteboard (desktop/laptop formats) */
+@media (max-width: 1600px) {
+    .canvas-container {
+        padding-right: clamp(240px, 30vw, 330px);
     }
 
-    .ui-panel {
-        min-width: 200px;
-        max-width: 250px;
+    .ui-panels {
+        width: clamp(230px, 28vw, 320px);
     }
 }
 
-@media (max-width: 768px) {
+@media (max-width: 1300px) {
+    .canvas-container {
+        padding-right: 230px;
+    }
+
     .ui-panels {
-        position: static;
-        display: grid;
-        grid-template-columns: 1fr;
-        gap: 10px;
-        margin-top: 20px;
+        width: 220px;
+        gap: 8px;
     }
 
     .ui-panel {
-        min-width: auto;
-        max-width: none;
+        max-height: 230px;
     }
 
     .toolbar-tools {
-        grid-template-columns: repeat(auto-fill, minmax(60px, 1fr));
+        grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
     .tool-btn {
-        min-height: 50px;
-        padding: 8px 4px;
-    }
-
-    .tool-icon {
-        font-size: 16px;
-    }
-
-    .tool-btn span {
-        font-size: 9px;
+        min-height: 52px;
+        padding: 8px 6px;
     }
 }
 
@@ -1303,4 +1337,66 @@ canvas.canvas:active {
 
 .notification-info {
     background: linear-gradient(135deg, #2196F3, #1976D2);
+}
+
+.theme-toggle-btn {
+    min-width: 86px;
+    font-weight: 600;
+}
+
+.theme-toggle-floating {
+    position: fixed;
+    top: 16px;
+    right: 16px;
+    z-index: 12000;
+}
+
+[data-theme="dark"] .dropdown-menu,
+[data-theme="dark"] .workspace-dropdown {
+    background: var(--surface-color);
+    border-color: var(--border-color);
+}
+
+[data-theme="dark"] .dropdown-menu a {
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .dropdown-menu a:hover,
+[data-theme="dark"] .workspace-option:hover,
+[data-theme="dark"] .workspace-action-btn:hover,
+[data-theme="dark"] .workspace-selector:hover,
+[data-theme="dark"] .btn-secondary:hover {
+    background: var(--overlay-soft);
+}
+
+[data-theme="dark"] .workspace-card,
+[data-theme="dark"] .settings-section,
+[data-theme="dark"] .invitation-container,
+[data-theme="dark"] .modal-content,
+[data-theme="dark"] .workspace-dropdown,
+[data-theme="dark"] .member-item,
+[data-theme="dark"] .workspace-selector {
+    background: var(--surface-color);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+[data-theme="dark"] .workspace-card-info p,
+[data-theme="dark"] .workspace-card-stats,
+[data-theme="dark"] .invitation-details,
+[data-theme="dark"] .member-role {
+    background: var(--overlay-soft);
+    color: var(--text-secondary);
+}
+
+[data-theme="dark"] .workspace-option {
+    border-bottom-color: var(--border-color);
+}
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+    background: var(--surface-color);
+    color: var(--text-primary);
+    border-color: var(--border-color);
 }

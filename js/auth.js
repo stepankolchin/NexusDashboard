@@ -107,21 +107,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    document.getElementById('testUserBtn').addEventListener('click', async () => {
-    const testUser = {
-        id: 999,
-        name: 'Тестовый Пользователь',
-        email: 'test@example.com'
-    };
-    
-    // Сохраняем данные пользователя
-    localStorage.setItem('user', JSON.stringify(testUser));
-    localStorage.setItem('token', 'test-token-' + Date.now());
-    localStorage.setItem('isTestUser', 'true');
-    
-    window.location.href = 'index.html';
-});
-
 // Проверяем, авторизован ли пользователь
 const token = localStorage.getItem('token');
 if (token && window.location.pathname.includes('login.html')) {

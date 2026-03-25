@@ -31,6 +31,16 @@ class ExtendedWhiteboard {
         this.lineStartPoint = null;
         this.lineEndPoint = null;
 
+        this.isDrawingShape = false;
+        this.shapeDrawingType = null;
+        this.shapeStartPoint = null;
+        this.shapeEndPoint = null;
+        this.isShiftPressed = false;
+        this.isPlacingElement = false;
+        this.placingElementTool = null;
+        this.placingStartPoint = null;
+        this.placingEndPoint = null;
+
         this.isDrawingArrow = false;
         this.arrowStartPoint = null;
         this.arrowEndPoint = null;
@@ -56,17 +66,26 @@ class ExtendedWhiteboard {
         this.lastCursorUpdate = 0;
         this.isForceRendering = false;
         this.renderThrottle = 16; // ~60fps mb
+        this.isBoxSelecting = false;
+        this.boxSelectionStart = null;
+        this.boxSelectionEnd = null;
 
         this.boardSettings = {
-            backgroundColor: '#ffffff',
+            backgroundColor: this.getThemeCanvasSurfaceColor(),
             gridStyle: 'dots',
             gridSize: 20,
             isLocked: false
         };
+        this.useThemeBackground = true;
 
         this.init();
         this.bindEvents();
         this.loadBoardData();
+    }
+
+    getThemeCanvasSurfaceColor() {
+        const color = getComputedStyle(document.documentElement).getPropertyValue('--canvas-surface').trim();
+        return color || '#ffffff';
     }
 
     init() {
@@ -163,8 +182,16 @@ class ExtendedWhiteboard {
         // Keyboard
         document.addEventListener('keydown', (e) => this.onKeyDown(e));
         document.addEventListener('keyup', (e) => this.onKeyUp(e));
+        window.addEventListener('themechange', () => this.onThemeChanged());
 
         window.addEventListener('resize', () => this.handleWindowResize());
+    }
+
+    onThemeChanged() {
+        if (this.useThemeBackground) {
+            this.boardSettings.backgroundColor = this.getThemeCanvasSurfaceColor();
+        }
+        this.render();
     }
 
     onToolSelect(tool) {
@@ -244,15 +271,16 @@ class ExtendedWhiteboard {
     onMouseDown(e) {
         const pos = this.getMousePos(e);
         this.lastMousePos = pos;
+        const activeTool = this.selectedTool?.tool || 'select';
 
         if (this.boardSettings.isLocked) return;
 
         if (e.button === 1) {
-            this.startPanning(pos);
+            this.startPanning(e);
             return;
         }
 
-        if (this.selectedTool?.tool === 'select' || !this.selectedTool) {
+        if (activeTool === 'select') {
             const resizeHandle = this.getResizeHandleAtPoint(pos);
             if (resizeHandle) {
                 this.startResize(resizeHandle.element, resizeHandle.handle, pos);
@@ -260,9 +288,9 @@ class ExtendedWhiteboard {
             }
         }
 
-        switch (this.selectedTool?.tool) {
+        switch (activeTool) {
             case 'select':
-                this.handleSelect(pos);
+                this.handleSelect(pos, e);
                 break;
             case 'shape':
                 if (this.selectedTool.shape === 'line' || this.selectedTool.shape === 'arrow') {
@@ -272,7 +300,7 @@ class ExtendedWhiteboard {
                         this.startArrowDrawing(pos);
                     }
                 } else {
-                    this.createElementAt(pos);
+                    this.startShapeDrawing(pos, this.selectedTool.shape || 'rectangle');
                 }
                 break;
             case 'connector':
@@ -282,8 +310,7 @@ class ExtendedWhiteboard {
             case 'sticky':
             case 'image':
             case 'file':
-            case 'connector':
-                this.createElementAt(pos);
+                this.startElementPlacement(pos, activeTool);
                 break;
             case 'drawing':
                 this.startDrawing(pos);
@@ -310,9 +337,13 @@ class ExtendedWhiteboard {
         const pos = this.getMousePos(e);
 
         if (this.isPanning) {
-            this.updatePanning(pos);
+            this.updatePanning(e);
         } else if (this.isResizing) {
             this.updateResize(pos);
+        } else if (this.isPlacingElement) {
+            this.updateElementPlacement(pos);
+        } else if (this.isDrawingShape) {
+            this.updateShapeDrawing(pos);
         } else if (this.isDrawingLine) {
             this.updateLineDrawing(pos);
         } else if (this.isDrawingArrow) {
@@ -323,6 +354,8 @@ class ExtendedWhiteboard {
             this.handleDrag(pos);
         } else if (this.isDrawing) {
             this.continueDrawing(pos);
+        } else if (this.isBoxSelecting) {
+            this.updateBoxSelection(pos);
         } else {
             if (now - (this.lastCursorUpdate || 0) > 50) {
                 this.updateCursorForResize(pos);
@@ -338,6 +371,10 @@ class ExtendedWhiteboard {
             this.endPanning();
         } else if (this.isResizing) {
             this.endResize();
+        } else if (this.isPlacingElement) {
+            this.finishElementPlacement();
+        } else if (this.isDrawingShape) {
+            this.finishShapeDrawing();
         } else if (this.isDrawingLine) {
             this.finishLineDrawing();
         } else if (this.isDrawingArrow) {
@@ -348,6 +385,8 @@ class ExtendedWhiteboard {
             this.endDrag();
         } else if (this.isDrawing) {
             this.endDrawing();
+        } else if (this.isBoxSelecting) {
+            this.endBoxSelection(e);
         }
     }
 
@@ -378,6 +417,12 @@ class ExtendedWhiteboard {
     }
 
     onKeyDown(e) {
+        if (e.key === 'Shift') {
+            this.isShiftPressed = true;
+        }
+
+        if (this.isTypingTarget(e.target)) return;
+
         if (e.key === 'Delete' || e.key === 'Backspace') {
             this.deleteSelectedElements();
         } else if (e.ctrlKey || e.metaKey) {
@@ -395,9 +440,21 @@ class ExtendedWhiteboard {
                 e.preventDefault();
                 this.groupSelectedElements();
             }
-        } else if (e.key === 'r' || e.key === 'R') {
+        } else if (e.shiftKey && (e.key === 'r' || e.key === 'R')) {
             e.preventDefault();
             this.resetView();
+        } else if (e.key === 'v' || e.key === 'V') {
+            e.preventDefault();
+            this.activateTool('select');
+        } else if (e.key === 'r' || e.key === 'R') {
+            e.preventDefault();
+            this.activateTool('shape', 'rectangle');
+        } else if (e.key === 'l' || e.key === 'L') {
+            e.preventDefault();
+            this.activateTool('shape', 'line');
+        } else if (e.key === 'p' || e.key === 'P') {
+            e.preventDefault();
+            this.activateTool('drawing');
         } else if (e.key === 'o' || e.key === 'O') {
             e.preventDefault();
             this.centerAtOrigin();
@@ -420,22 +477,45 @@ class ExtendedWhiteboard {
             e.preventDefault();
             this.panOffset.x -= 50 / this.zoom;
             this.throttledRender();
-        } else if (e.key === 'p' || e.key === 'P') {
-            e.preventDefault();
-            console.log('Manual pan test: moving pan offset by 100 pixels');
-            this.panOffset.x += 100;
-            this.render();
         }
     }
 
     onKeyUp(e) {
-        // Пока заглушка
+        if (e.key === 'Shift') {
+            this.isShiftPressed = false;
+        }
+    }
+
+    isTypingTarget(target) {
+        if (!target) return false;
+        const tagName = target.tagName ? target.tagName.toLowerCase() : '';
+        return target.isContentEditable || tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+    }
+
+    activateTool(tool, shape = null) {
+        if (this.toolbarPanel?.setSelectedTool) {
+            const wasSelected = this.toolbarPanel.setSelectedTool(tool, shape);
+            if (wasSelected) return;
+        }
+
+        this.onToolSelect({ tool, shape });
+    }
+
+    snapToGrid(value) {
+        const gridSize = this.boardSettings?.gridSize || 0;
+        if (!gridSize || gridSize <= 0) {
+            return Math.round(value * 1000) / 1000;
+        }
+
+        return Math.round((Math.round(value / gridSize) * gridSize) * 1000) / 1000;
     }
 
     getMousePos(e) {
         const rect = this.canvas.getBoundingClientRect();
-        const screenX = e.clientX - rect.left;
-        const screenY = e.clientY - rect.top;
+        const scaleX = rect.width ? this.canvas.width / rect.width : 1;
+        const scaleY = rect.height ? this.canvas.height / rect.height : 1;
+        const screenX = (e.clientX - rect.left) * scaleX;
+        const screenY = (e.clientY - rect.top) * scaleY;
 
         // Перевод координат экрана в координаты канваса
         const pos = this.inverseTransformPoint(screenX, screenY);
@@ -446,32 +526,36 @@ class ExtendedWhiteboard {
         };
     }
 
-    handleSelect(pos) {
+    handleSelect(pos, e) {
         const element = this.layerManager.getElementAtPoint(pos.x, pos.y);
 
         if (element) {
             if (this.layerManager.getSelectedElements().find(el => el.id === element.id)) {
-                this.startDrag(pos);
+                this.startDrag(pos, element);
             } else {
                 this.layerManager.selectElements([element.id]);
                 this.propertiesPanel.showElementProperties(element);
-                this.startDrag(pos);
+                this.startDrag(pos, element);
             }
         } else {
-            this.layerManager.clearSelection();
-            this.propertiesPanel.hideElementProperties();
+            if (e && e.button === 0) {
+                this.startBoxSelection(pos);
+            } else {
+                this.layerManager.clearSelection();
+                this.propertiesPanel.hideElementProperties();
+            }
         }
 
         this.layerPanel.updateLayers();
         this.render();
     }
 
-    startDrag(pos) {
+    startDrag(pos, anchorElement = null) {
         this.isDragging = true;
         const selectedElements = this.layerManager.getSelectedElements();
 
         if (selectedElements.length > 0) {
-            const element = selectedElements[0];
+            const element = anchorElement || selectedElements[0];
             this.dragOffset = {
                 x: pos.x - element.properties.x,
                 y: pos.y - element.properties.y
@@ -483,8 +567,8 @@ class ExtendedWhiteboard {
         const selectedElements = this.layerManager.getSelectedElements();
 
         selectedElements.forEach(element => {
-            element.properties.x = Math.round((pos.x - this.dragOffset.x) * 1000) / 1000;
-            element.properties.y = Math.round((pos.y - this.dragOffset.y) * 1000) / 1000;
+            element.properties.x = this.snapToGrid(pos.x - this.dragOffset.x);
+            element.properties.y = this.snapToGrid(pos.y - this.dragOffset.y);
 
             this.updateConnectedElements(element);
         });
@@ -499,6 +583,66 @@ class ExtendedWhiteboard {
         selectedElements.forEach(element => {
             this.syncElementToServer(element.id);
         });
+    }
+
+    startBoxSelection(pos) {
+        this.isBoxSelecting = true;
+        this.boxSelectionStart = { ...pos };
+        this.boxSelectionEnd = { ...pos };
+        this.layerManager.clearSelection();
+        this.propertiesPanel.hideElementProperties();
+        this.layerPanel.updateLayers();
+        this.render();
+    }
+
+    updateBoxSelection(pos) {
+        this.boxSelectionEnd = { ...pos };
+        this.render();
+    }
+
+    endBoxSelection() {
+        if (!this.isBoxSelecting || !this.boxSelectionStart || !this.boxSelectionEnd) return;
+
+        const minX = Math.min(this.boxSelectionStart.x, this.boxSelectionEnd.x);
+        const minY = Math.min(this.boxSelectionStart.y, this.boxSelectionEnd.y);
+        const maxX = Math.max(this.boxSelectionStart.x, this.boxSelectionEnd.x);
+        const maxY = Math.max(this.boxSelectionStart.y, this.boxSelectionEnd.y);
+        const boxWidth = maxX - minX;
+        const boxHeight = maxY - minY;
+
+        if (boxWidth < 3 && boxHeight < 3) {
+            this.layerManager.clearSelection();
+            this.propertiesPanel.hideElementProperties();
+        } else {
+            const selectedIds = this.layerManager
+                .getRenderableLayers()
+                .filter((el) => {
+                    const b = ElementTypes.getElementBounds(el);
+                    const intersectsHorizontally = b.x < maxX && (b.x + b.width) > minX;
+                    const intersectsVertically = b.y < maxY && (b.y + b.height) > minY;
+                    return intersectsHorizontally && intersectsVertically;
+                })
+                .map((el) => el.id);
+
+            if (selectedIds.length > 0) {
+                this.layerManager.selectElements(selectedIds);
+                if (selectedIds.length === 1) {
+                    const selectedElement = this.layerManager.layers.find(el => el.id === selectedIds[0]);
+                    if (selectedElement) this.propertiesPanel.showElementProperties(selectedElement);
+                } else {
+                    this.propertiesPanel.hideElementProperties();
+                }
+            } else {
+                this.layerManager.clearSelection();
+                this.propertiesPanel.hideElementProperties();
+            }
+        }
+
+        this.isBoxSelecting = false;
+        this.boxSelectionStart = null;
+        this.boxSelectionEnd = null;
+        this.layerPanel.updateLayers();
+        this.render();
     }
 
     updateConnectedElements(element) {
@@ -556,10 +700,7 @@ class ExtendedWhiteboard {
         };
 
         this.createElement(elementData);
-
-        this.toolbarPanel.resetSelection();
-        this.selectedTool = null;
-        this.canvas.style.cursor = 'default';
+        this.activateTool('select');
     }
 
     createElement(elementData) {
@@ -578,12 +719,22 @@ class ExtendedWhiteboard {
         };
 
         this.layerManager.addElement(element);
+        this.focusCreatedElement(element);
         this.layerPanel.updateLayers();
         this.updateHistoryPanel();
         this.forceRender(); // Принудительная отрисовка для новых элементов
 
         // Синхронизация с сервером
         this.syncElementToServer(element.id);
+        return element;
+    }
+
+    focusCreatedElement(element) {
+        if (!element) return;
+        this.layerManager.selectElements([element.id]);
+        this.propertiesPanel.showElementProperties(element);
+        this.activateTool('select');
+        this.canvas.style.cursor = 'default';
     }
 
     getNextZIndex() {
@@ -608,6 +759,178 @@ class ExtendedWhiteboard {
         this.canvas.style.cursor = 'crosshair';
     }
 
+    startShapeDrawing(pos, shapeType) {
+        this.isDrawingShape = true;
+        this.shapeDrawingType = shapeType || 'rectangle';
+        this.shapeStartPoint = { ...pos };
+        this.shapeEndPoint = { ...pos };
+        this.canvas.style.cursor = 'crosshair';
+    }
+
+    updateShapeDrawing(pos) {
+        this.shapeEndPoint = { ...pos };
+        this.render();
+    }
+
+    getConstrainedLineEnd(startPoint, endPoint) {
+        if (!this.isShiftPressed || !startPoint || !endPoint) {
+            return { ...endPoint };
+        }
+
+        const dx = endPoint.x - startPoint.x;
+        const dy = endPoint.y - startPoint.y;
+        const angle = Math.atan2(dy, dx);
+        const distance = Math.sqrt(dx * dx + dy * dy);
+        const step = Math.PI / 4;
+        const snappedAngle = Math.round(angle / step) * step;
+
+        return {
+            x: startPoint.x + Math.cos(snappedAngle) * distance,
+            y: startPoint.y + Math.sin(snappedAngle) * distance
+        };
+    }
+
+    getShapeDrawingGeometry(applySnap = false) {
+        if (!this.shapeStartPoint || !this.shapeEndPoint) return null;
+
+        let endX = this.shapeEndPoint.x;
+        let endY = this.shapeEndPoint.y;
+        const startX = this.shapeStartPoint.x;
+        const startY = this.shapeStartPoint.y;
+        const shape = this.shapeDrawingType || 'rectangle';
+        const shouldConstrain = this.isShiftPressed && ['rectangle', 'circle', 'triangle', 'star'].includes(shape);
+
+        if (shouldConstrain) {
+            const deltaX = endX - startX;
+            const deltaY = endY - startY;
+            const size = Math.max(Math.abs(deltaX), Math.abs(deltaY));
+
+            endX = startX + (deltaX >= 0 ? size : -size);
+            endY = startY + (deltaY >= 0 ? size : -size);
+        }
+
+        const geometry = {
+            x: Math.min(startX, endX),
+            y: Math.min(startY, endY),
+            width: Math.abs(endX - startX),
+            height: Math.abs(endY - startY)
+        };
+
+        if (!applySnap) return geometry;
+
+        return {
+            x: this.snapToGrid(geometry.x),
+            y: this.snapToGrid(geometry.y),
+            width: Math.max(10, this.snapToGrid(geometry.width)),
+            height: Math.max(10, this.snapToGrid(geometry.height))
+        };
+    }
+
+    finishShapeDrawing() {
+        if (!this.isDrawingShape || !this.shapeStartPoint || !this.shapeEndPoint) return;
+
+        const geometry = this.getShapeDrawingGeometry(true);
+        if (!geometry) return;
+        const { x: startX, y: startY, width, height } = geometry;
+
+        if (width > 2 || height > 2) {
+            const properties = ElementTypes.getDefaultProperties('shape');
+            properties.shape = this.shapeDrawingType || 'rectangle';
+            properties.x = startX;
+            properties.y = startY;
+            properties.width = width;
+            properties.height = height;
+
+            this.createElement({
+                type: 'shape',
+                properties: properties,
+                z_index: this.getNextZIndex()
+            });
+        }
+
+        this.isDrawingShape = false;
+        this.shapeDrawingType = null;
+        this.shapeStartPoint = null;
+        this.shapeEndPoint = null;
+        this.canvas.style.cursor = 'default';
+
+        this.activateTool('select');
+    }
+
+    startElementPlacement(pos, tool) {
+        this.isPlacingElement = true;
+        this.placingElementTool = tool;
+        this.placingStartPoint = { ...pos };
+        this.placingEndPoint = { ...pos };
+        this.canvas.style.cursor = 'crosshair';
+    }
+
+    updateElementPlacement(pos) {
+        this.placingEndPoint = { ...pos };
+        this.render();
+    }
+
+    getPlacementGeometry(applySnap = false) {
+        if (!this.placingStartPoint || !this.placingEndPoint) return null;
+
+        const geometry = {
+            x: Math.min(this.placingStartPoint.x, this.placingEndPoint.x),
+            y: Math.min(this.placingStartPoint.y, this.placingEndPoint.y),
+            width: Math.abs(this.placingEndPoint.x - this.placingStartPoint.x),
+            height: Math.abs(this.placingEndPoint.y - this.placingStartPoint.y)
+        };
+
+        if (!applySnap) return geometry;
+
+        return {
+            x: this.snapToGrid(geometry.x),
+            y: this.snapToGrid(geometry.y),
+            width: Math.max(10, this.snapToGrid(geometry.width)),
+            height: Math.max(10, this.snapToGrid(geometry.height))
+        };
+    }
+
+    finishElementPlacement() {
+        if (!this.isPlacingElement || !this.placingElementTool || !this.placingStartPoint || !this.placingEndPoint) return;
+
+        const tool = this.placingElementTool;
+        const rawGeometry = this.getPlacementGeometry(false);
+        if (!rawGeometry) return;
+
+        const hasDragArea = rawGeometry.width > 2 || rawGeometry.height > 2;
+        const properties = ElementTypes.getDefaultProperties(tool);
+
+        if (hasDragArea) {
+            const geometry = this.getPlacementGeometry(true);
+            properties.x = geometry.x;
+            properties.y = geometry.y;
+            properties.width = geometry.width;
+            properties.height = geometry.height;
+        } else {
+            properties.x = Math.round((this.placingStartPoint.x - properties.width / 2) * 1000) / 1000;
+            properties.y = Math.round((this.placingStartPoint.y - properties.height / 2) * 1000) / 1000;
+        }
+
+        if (tool === 'image') {
+            this.handleImageUpload(this.placingStartPoint, properties);
+        } else if (tool === 'file') {
+            this.handleFileUpload(this.placingStartPoint, properties);
+        } else {
+            this.createElement({
+                type: tool,
+                properties: properties,
+                z_index: this.getNextZIndex()
+            });
+        }
+
+        this.isPlacingElement = false;
+        this.placingElementTool = null;
+        this.placingStartPoint = null;
+        this.placingEndPoint = null;
+        this.canvas.style.cursor = 'default';
+        this.activateTool('select');
+    }
+
     startArrowDrawing(pos) {
         this.isDrawingArrow = true;
         this.arrowStartPoint = { ...pos };
@@ -623,26 +946,20 @@ class ExtendedWhiteboard {
     }
 
     updateLineDrawing(pos) {
-        this.lineEndPoint = { ...pos };
+        this.lineEndPoint = this.getConstrainedLineEnd(this.lineStartPoint, pos);
         this.render();
     }
 
     finishLineDrawing() {
-        console.log('Finishing line drawing, checking conditions...');
-        if (!this.isDrawingLine || !this.lineStartPoint || !this.lineEndPoint) {
-            console.log('Line drawing not ready:', { isDrawingLine: this.isDrawingLine, startPoint: this.lineStartPoint, endPoint: this.lineEndPoint });
-            return;
-        }
+        if (!this.isDrawingLine || !this.lineStartPoint || !this.lineEndPoint) return;
 
-        const startX = Math.min(this.lineStartPoint.x, this.lineEndPoint.x);
-        const startY = Math.min(this.lineStartPoint.y, this.lineEndPoint.y);
-        const width = Math.abs(this.lineEndPoint.x - this.lineStartPoint.x);
-        const height = Math.abs(this.lineEndPoint.y - this.lineStartPoint.y);
-
-        console.log('Line dimensions:', { startX, startY, width, height });
+        const constrainedEnd = this.getConstrainedLineEnd(this.lineStartPoint, this.lineEndPoint);
+        const startX = Math.min(this.lineStartPoint.x, constrainedEnd.x);
+        const startY = Math.min(this.lineStartPoint.y, constrainedEnd.y);
+        const width = Math.abs(constrainedEnd.x - this.lineStartPoint.x);
+        const height = Math.abs(constrainedEnd.y - this.lineStartPoint.y);
 
         if (width > 2 || height > 2) {
-            console.log('Creating line element...');
             const properties = ElementTypes.getDefaultProperties('shape');
             properties.shape = 'line';
             properties.x = Math.round(startX * 1000) / 1000;
@@ -655,8 +972,8 @@ class ExtendedWhiteboard {
                 y: Math.round(this.lineStartPoint.y * 1000) / 1000
             };
             properties.endPoint = {
-                x: Math.round(this.lineEndPoint.x * 1000) / 1000,
-                y: Math.round(this.lineEndPoint.y * 1000) / 1000
+                x: Math.round(constrainedEnd.x * 1000) / 1000,
+                y: Math.round(constrainedEnd.y * 1000) / 1000
             };
 
             const elementData = {
@@ -665,10 +982,7 @@ class ExtendedWhiteboard {
                 z_index: this.getNextZIndex()
             };
 
-            console.log('Element data:', elementData);
             this.createElement(elementData);
-        } else {
-            console.log('Line too short, not creating');
         }
 
         this.isDrawingLine = false;
@@ -676,22 +990,22 @@ class ExtendedWhiteboard {
         this.lineEndPoint = null;
         this.canvas.style.cursor = 'default';
 
-        this.toolbarPanel.resetSelection();
-        this.selectedTool = null;
+        this.activateTool('select');
     }
 
     updateArrowDrawing(pos) {
-        this.arrowEndPoint = { ...pos };
+        this.arrowEndPoint = this.getConstrainedLineEnd(this.arrowStartPoint, pos);
         this.render();
     }
 
     finishArrowDrawing() {
         if (!this.isDrawingArrow || !this.arrowStartPoint || !this.arrowEndPoint) return;
 
-        const startX = Math.min(this.arrowStartPoint.x, this.arrowEndPoint.x);
-        const startY = Math.min(this.arrowStartPoint.y, this.arrowEndPoint.y);
-        const width = Math.abs(this.arrowEndPoint.x - this.arrowStartPoint.x);
-        const height = Math.abs(this.arrowEndPoint.y - this.arrowStartPoint.y);
+        const constrainedEnd = this.getConstrainedLineEnd(this.arrowStartPoint, this.arrowEndPoint);
+        const startX = Math.min(this.arrowStartPoint.x, constrainedEnd.x);
+        const startY = Math.min(this.arrowStartPoint.y, constrainedEnd.y);
+        const width = Math.abs(constrainedEnd.x - this.arrowStartPoint.x);
+        const height = Math.abs(constrainedEnd.y - this.arrowStartPoint.y);
 
         if (width > 2 || height > 2) {
             const properties = ElementTypes.getDefaultProperties('shape');
@@ -706,8 +1020,8 @@ class ExtendedWhiteboard {
                 y: Math.round(this.arrowStartPoint.y * 1000) / 1000
             };
             properties.endPoint = {
-                x: Math.round(this.arrowEndPoint.x * 1000) / 1000,
-                y: Math.round(this.arrowEndPoint.y * 1000) / 1000
+                x: Math.round(constrainedEnd.x * 1000) / 1000,
+                y: Math.round(constrainedEnd.y * 1000) / 1000
             };
 
             const elementData = {
@@ -724,22 +1038,22 @@ class ExtendedWhiteboard {
         this.arrowEndPoint = null;
         this.canvas.style.cursor = 'default';
 
-        this.toolbarPanel.resetSelection();
-        this.selectedTool = null;
+        this.activateTool('select');
     }
 
     updateConnectorDrawing(pos) {
-        this.connectorEndPoint = { ...pos };
+        this.connectorEndPoint = this.getConstrainedLineEnd(this.connectorStartPoint, pos);
         this.render();
     }
 
     finishConnectorDrawing() {
         if (!this.isDrawingConnector || !this.connectorStartPoint || !this.connectorEndPoint) return;
 
-        const startX = Math.min(this.connectorStartPoint.x, this.connectorEndPoint.x);
-        const startY = Math.min(this.connectorStartPoint.y, this.connectorEndPoint.y);
-        const width = Math.abs(this.connectorEndPoint.x - this.connectorStartPoint.x);
-        const height = Math.abs(this.connectorEndPoint.y - this.connectorStartPoint.y);
+        const constrainedEnd = this.getConstrainedLineEnd(this.connectorStartPoint, this.connectorEndPoint);
+        const startX = Math.min(this.connectorStartPoint.x, constrainedEnd.x);
+        const startY = Math.min(this.connectorStartPoint.y, constrainedEnd.y);
+        const width = Math.abs(constrainedEnd.x - this.connectorStartPoint.x);
+        const height = Math.abs(constrainedEnd.y - this.connectorStartPoint.y);
 
         if (width > 2 || height > 2) {
             const properties = ElementTypes.getDefaultProperties('connector');
@@ -753,8 +1067,8 @@ class ExtendedWhiteboard {
                 y: Math.round(this.connectorStartPoint.y * 1000) / 1000
             };
             properties.endPoint = {
-                x: Math.round(this.connectorEndPoint.x * 1000) / 1000,
-                y: Math.round(this.connectorEndPoint.y * 1000) / 1000
+                x: Math.round(constrainedEnd.x * 1000) / 1000,
+                y: Math.round(constrainedEnd.y * 1000) / 1000
             };
 
             const elementData = {
@@ -771,8 +1085,7 @@ class ExtendedWhiteboard {
         this.connectorEndPoint = null;
         this.canvas.style.cursor = 'default';
 
-        this.toolbarPanel.resetSelection();
-        this.selectedTool = null;
+        this.activateTool('select');
     }
 
     continueDrawing(pos) {
@@ -918,6 +1231,7 @@ class ExtendedWhiteboard {
         this.renderOriginMarker();
         this.renderElements();
         this.renderSelection();
+        this.renderBoxSelection();
         this.renderResizeHandles();
 
         // Отрисовка текущего пути рисования
@@ -927,6 +1241,14 @@ class ExtendedWhiteboard {
 
         if (this.isDrawingLine && this.lineStartPoint && this.lineEndPoint) {
             this.renderLinePreview();
+        }
+
+        if (this.isDrawingShape && this.shapeStartPoint && this.shapeEndPoint) {
+            this.renderShapePreview();
+        }
+
+        if (this.isPlacingElement && this.placingStartPoint && this.placingEndPoint) {
+            this.renderElementPlacementPreview();
         }
 
         if (this.isDrawingArrow && this.arrowStartPoint && this.arrowEndPoint) {
@@ -975,12 +1297,9 @@ class ExtendedWhiteboard {
     renderLinePreview() {
         this.ctx.save();
 
-        this.ctx.translate(this.panOffset.x, this.panOffset.y);
-        this.ctx.scale(this.zoom, this.zoom);
-
         this.ctx.strokeStyle = '#007bff';
-        this.ctx.lineWidth = 2;
-        this.ctx.setLineDash([5, 5]);
+        this.ctx.lineWidth = 2 / this.zoom;
+        this.ctx.setLineDash([5 / this.zoom, 5 / this.zoom]);
 
         this.ctx.beginPath();
         this.ctx.moveTo(this.lineStartPoint.x, this.lineStartPoint.y);
@@ -1001,15 +1320,60 @@ class ExtendedWhiteboard {
         this.ctx.restore();
     }
 
+    renderShapePreview() {
+        if (!this.shapeStartPoint || !this.shapeEndPoint) return;
+
+        const geometry = this.getShapeDrawingGeometry(true);
+        if (!geometry) return;
+        const { x, y, width, height } = geometry;
+
+        if (width < 1 && height < 1) return;
+
+        const previewElement = {
+            type: 'shape',
+            properties: {
+                ...ElementTypes.getDefaultProperties('shape'),
+                shape: this.shapeDrawingType || 'rectangle',
+                x,
+                y,
+                width: Math.max(1, width),
+                height: Math.max(1, height),
+                fillColor: 'rgba(0, 123, 255, 0.12)',
+                strokeColor: '#007bff',
+                strokeWidth: 2
+            }
+        };
+
+        this.ctx.save();
+        this.ctx.setLineDash([6 / this.zoom, 4 / this.zoom]);
+        ElementTypes.renderElement(this.ctx, previewElement);
+        this.ctx.restore();
+    }
+
+    renderElementPlacementPreview() {
+        if (!this.placingElementTool) return;
+        const geometry = this.getPlacementGeometry(true);
+        if (!geometry) return;
+        const { x, y, width, height } = geometry;
+
+        if (width < 1 && height < 1) return;
+
+        this.ctx.save();
+        this.ctx.strokeStyle = '#007bff';
+        this.ctx.fillStyle = 'rgba(0, 123, 255, 0.08)';
+        this.ctx.lineWidth = 1.5 / this.zoom;
+        this.ctx.setLineDash([6 / this.zoom, 4 / this.zoom]);
+        this.ctx.fillRect(x, y, width, height);
+        this.ctx.strokeRect(x, y, width, height);
+        this.ctx.restore();
+    }
+
     renderArrowPreview() {
         this.ctx.save();
 
-        this.ctx.translate(this.panOffset.x, this.panOffset.y);
-        this.ctx.scale(this.zoom, this.zoom);
-
         // Рисуем превью
         this.ctx.strokeStyle = '#007bff';
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = 2 / this.zoom;
 
         this.ctx.beginPath();
         this.ctx.moveTo(this.arrowStartPoint.x, this.arrowStartPoint.y);
@@ -1025,12 +1389,9 @@ class ExtendedWhiteboard {
     renderConnectorPreview() {
         this.ctx.save();
 
-        this.ctx.translate(this.panOffset.x, this.panOffset.y);
-        this.ctx.scale(this.zoom, this.zoom);
-
         // Рисуем превью
         this.ctx.strokeStyle = '#007bff';
-        this.ctx.lineWidth = 2;
+        this.ctx.lineWidth = 2 / this.zoom;
 
         this.ctx.beginPath();
         this.ctx.moveTo(this.connectorStartPoint.x, this.connectorStartPoint.y);
@@ -1045,111 +1406,70 @@ class ExtendedWhiteboard {
     }
 
     renderBackground() {
-        this.ctx.fillStyle = this.boardSettings.backgroundColor;
+        this.ctx.fillStyle = this.useThemeBackground
+            ? this.getThemeCanvasSurfaceColor()
+            : this.boardSettings.backgroundColor;
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
     }
 
     renderGrid() {
         if (this.boardSettings.gridStyle === 'none') return;
 
-        const zoom = this.zoom;
-        const invZoom = 1 / zoom;
+        const zoom = this.zoom || 1;
+        const baseGridSize = Math.max(4, this.boardSettings.gridSize || 20);
+        const rootStyles = getComputedStyle(document.documentElement);
+        const dotColor = (rootStyles.getPropertyValue('--grid-dot-color') || '#aeb7c3').trim();
+        const lineColor = (rootStyles.getPropertyValue('--grid-line-color') || '#d2dae3').trim();
 
-        const baseDotSize = 1;
-        const dotSize = Math.max(0.5, Math.min(3, baseDotSize * Math.sqrt(invZoom)));
+        // Keep grid readable at any zoom: step grows/shrinks in powers of two around base size.
+        const minStepPx = 18;
+        const stepMultiplier = Math.max(1, Math.pow(2, Math.ceil(Math.log2(minStepPx / (baseGridSize * zoom)))));
+        const gridStep = baseGridSize * stepMultiplier;
 
-        const baseGridSize = this.boardSettings.gridSize;
-        const zoomFactor = Math.max(1, Math.pow(2, Math.floor(Math.log2(invZoom))));
-        const gridSize = baseGridSize * zoomFactor;
+        const topLeft = this.inverseTransformPoint(0, 0);
+        const bottomRight = this.inverseTransformPoint(this.canvas.width, this.canvas.height);
+        const worldLeft = Math.min(topLeft.x, bottomRight.x);
+        const worldTop = Math.min(topLeft.y, bottomRight.y);
+        const worldRight = Math.max(topLeft.x, bottomRight.x);
+        const worldBottom = Math.max(topLeft.y, bottomRight.y);
 
-        const baseRenderMargin = Math.max(this.canvas.width, this.canvas.height) * 2;
-        const renderMargin = baseRenderMargin / Math.sqrt(zoomFactor);
+        const startX = Math.floor(worldLeft / gridStep) * gridStep;
+        const startY = Math.floor(worldTop / gridStep) * gridStep;
+        const endX = Math.ceil(worldRight / gridStep) * gridStep;
+        const endY = Math.ceil(worldBottom / gridStep) * gridStep;
 
-        const panOffsetX = this.panOffset.x;
-        const panOffsetY = this.panOffset.y;
-        const worldCenterX = -panOffsetX * invZoom;
-        const worldCenterY = -panOffsetY * invZoom;
-        const worldHalfWidth = (this.canvas.width / 2 + renderMargin) * invZoom;
-        const worldHalfHeight = (this.canvas.height / 2 + renderMargin) * invZoom;
-
-        const worldLeft = worldCenterX - worldHalfWidth;
-        const worldTop = worldCenterY - worldHalfHeight;
-        const worldRight = worldCenterX + worldHalfWidth;
-        const worldBottom = worldCenterY + worldHalfHeight;
-
-        const startX = Math.floor(worldLeft / gridSize) * gridSize;
-        const startY = Math.floor(worldTop / gridSize) * gridSize;
-
-        this.ctx.strokeStyle = '#e0e0e0';
-        this.ctx.lineWidth = 1;
+        this.ctx.save();
+        this.ctx.setLineDash([]);
+        this.ctx.strokeStyle = lineColor;
+        this.ctx.fillStyle = dotColor;
+        this.ctx.lineWidth = 1 / zoom;
 
         if (this.boardSettings.gridStyle === 'dots') {
-            this.ctx.setLineDash([]);
-
-            const zoom = this.zoom;
-            const panOffsetX = this.panOffset.x;
-            const panOffsetY = this.panOffset.y;
-            const canvasWidth = this.canvas.width;
-            const canvasHeight = this.canvas.height;
-
-            const maxGridPoints = 50000;
-            let renderedPoints = 0;
-
-            const endX = Math.min(worldRight + gridSize, startX + gridSize * 1000);
-            const endY = Math.min(worldBottom + gridSize, startY + gridSize * 1000);
-
-            for (let x = startX; x <= endX && renderedPoints < maxGridPoints; x += gridSize) {
-                const baseScreenX = (x * zoom) + panOffsetX;
-                const xInBounds = baseScreenX >= -renderMargin && baseScreenX <= canvasWidth + renderMargin;
-
-                if (!xInBounds) continue;
-
-                for (let y = startY; y <= endY && renderedPoints < maxGridPoints; y += gridSize) {
-                    const screenY = (y * zoom) + panOffsetY;
-
-                    if (screenY >= -renderMargin && screenY <= canvasHeight + renderMargin) {
-                        this.ctx.beginPath();
-                        this.ctx.arc(baseScreenX, screenY, dotSize, 0, 2 * Math.PI);
-                        this.ctx.stroke();
-                        renderedPoints++;
-                    }
+            const radius = Math.max(0.7 / zoom, 0.35);
+            for (let x = startX; x <= endX; x += gridStep) {
+                for (let y = startY; y <= endY; y += gridStep) {
+                    this.ctx.beginPath();
+                    this.ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                    this.ctx.fill();
                 }
             }
         } else if (this.boardSettings.gridStyle === 'lines') {
-            this.ctx.setLineDash([]);
-
-            this.ctx.lineWidth = Math.max(0.5, 1 * Math.sqrt(invZoom));
-
-            const zoom = this.zoom;
-            const panOffsetX = this.panOffset.x;
-            const panOffsetY = this.panOffset.y;
-            const canvasWidth = this.canvas.width;
-            const canvasHeight = this.canvas.height;
-
-            const endX = Math.min(worldRight + gridSize, startX + gridSize * 1000);
-            for (let x = startX; x <= endX; x += gridSize) {
-                const screenX = (x * zoom) + panOffsetX;
-                if (screenX >= -renderMargin && screenX <= canvasWidth + renderMargin) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(screenX, -renderMargin);
-                    this.ctx.lineTo(screenX, canvasHeight + renderMargin);
-                    this.ctx.stroke();
-                }
+            for (let x = startX; x <= endX; x += gridStep) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(x, worldTop);
+                this.ctx.lineTo(x, worldBottom);
+                this.ctx.stroke();
             }
 
-            const endY = Math.min(worldBottom + gridSize, startY + gridSize * 1000);
-            for (let y = startY; y <= endY; y += gridSize) {
-                const screenY = (y * zoom) + panOffsetY;
-                if (screenY >= -renderMargin && screenY <= canvasHeight + renderMargin) {
-                    this.ctx.beginPath();
-                    this.ctx.moveTo(-renderMargin, screenY);
-                    this.ctx.lineTo(canvasWidth + renderMargin, screenY);
-                    this.ctx.stroke();
-                }
+            for (let y = startY; y <= endY; y += gridStep) {
+                this.ctx.beginPath();
+                this.ctx.moveTo(worldLeft, y);
+                this.ctx.lineTo(worldRight, y);
+                this.ctx.stroke();
             }
         }
 
-        this.ctx.setLineDash([]);
+        this.ctx.restore();
     }
 
     renderOriginMarker() {
@@ -1196,6 +1516,24 @@ class ExtendedWhiteboard {
             this.ctx.strokeRect(bounds.x - 5, bounds.y - 5, bounds.width + 10, bounds.height + 10);
             this.ctx.setLineDash([]);
         });
+    }
+
+    renderBoxSelection() {
+        if (!this.isBoxSelecting || !this.boxSelectionStart || !this.boxSelectionEnd) return;
+
+        const x = Math.min(this.boxSelectionStart.x, this.boxSelectionEnd.x);
+        const y = Math.min(this.boxSelectionStart.y, this.boxSelectionEnd.y);
+        const w = Math.abs(this.boxSelectionEnd.x - this.boxSelectionStart.x);
+        const h = Math.abs(this.boxSelectionEnd.y - this.boxSelectionStart.y);
+
+        this.ctx.save();
+        this.ctx.setLineDash([6, 4]);
+        this.ctx.strokeStyle = '#007bff';
+        this.ctx.lineWidth = 1 / this.zoom;
+        this.ctx.fillStyle = 'rgba(0, 123, 255, 0.08)';
+        this.ctx.fillRect(x, y, w, h);
+        this.ctx.strokeRect(x, y, w, h);
+        this.ctx.restore();
     }
 
     renderResizeHandles() {
@@ -1388,8 +1726,6 @@ class ExtendedWhiteboard {
                 properties.fileId = uploadResponse.id;
                 properties.src = uploadResponse.url;
                 properties.alt = file.name;
-                properties.width = 200;
-                properties.height = 200;
 
                 const elementData = {
                     type: 'image',
@@ -1398,10 +1734,6 @@ class ExtendedWhiteboard {
                 };
 
                 this.createElement(elementData);
-
-                this.toolbarPanel.resetSelection();
-                this.selectedTool = null;
-                this.canvas.style.cursor = 'default';
             }
         } catch (error) {
             console.error('Failed to upload image:', error);
@@ -1434,10 +1766,6 @@ class ExtendedWhiteboard {
                 };
 
                 this.createElement(elementData);
-
-                this.toolbarPanel.resetSelection();
-                this.selectedTool = null;
-                this.canvas.style.cursor = 'default';
             }
         } catch (error) {
             console.error('Failed to upload file:', error);
@@ -1548,18 +1876,16 @@ class ExtendedWhiteboard {
         if (newWidth < 10) newWidth = 10;
         if (newHeight < 10) newHeight = 10;
 
-        element.properties.x = Math.round(newX * 1000) / 1000;
-        element.properties.y = Math.round(newY * 1000) / 1000;
-        element.properties.width = Math.round(newWidth * 1000) / 1000;
-        element.properties.height = Math.round(newHeight * 1000) / 1000;
+        element.properties.x = this.snapToGrid(newX);
+        element.properties.y = this.snapToGrid(newY);
+        element.properties.width = Math.max(10, this.snapToGrid(newWidth));
+        element.properties.height = Math.max(10, this.snapToGrid(newHeight));
 
         const now = Date.now();
         if (now - this.lastRenderTime >= this.renderThrottle) {
             this.render();
             this.lastRenderTime = now;
         }
-
-        this.render();
     }
 
     getResizeCursor(handle) {
@@ -1599,31 +1925,29 @@ class ExtendedWhiteboard {
     }
 
     // Pan and zoom methods
-    startPanning(pos) {
+    startPanning(mouseEvent) {
         this.isPanning = true;
-        this.panStart = { ...pos };
-
-        // Track mouse position directly in screen coordinates
         const rect = this.canvas.getBoundingClientRect();
-        const mouseEvent = window.event; // Get the original mouse event
+        const scaleX = rect.width ? this.canvas.width / rect.width : 1;
+        const scaleY = rect.height ? this.canvas.height / rect.height : 1;
         this.lastPanScreenPos = {
-            x: mouseEvent.clientX - rect.left,
-            y: mouseEvent.clientY - rect.top
+            x: (mouseEvent.clientX - rect.left) * scaleX,
+            y: (mouseEvent.clientY - rect.top) * scaleY
         };
 
         this.canvas.style.cursor = 'grabbing';
     }
 
-    updatePanning(pos) {
+    updatePanning(mouseEvent) {
         if (!this.isPanning) return;
 
         const now = Date.now();
-
-        const mouseEvent = window.event; // Get the original mouse event
         const rect = this.canvas.getBoundingClientRect();
+        const scaleX = rect.width ? this.canvas.width / rect.width : 1;
+        const scaleY = rect.height ? this.canvas.height / rect.height : 1;
         const currentScreenPos = {
-            x: mouseEvent.clientX - rect.left,
-            y: mouseEvent.clientY - rect.top
+            x: (mouseEvent.clientX - rect.left) * scaleX,
+            y: (mouseEvent.clientY - rect.top) * scaleY
         };
 
         const deltaX = currentScreenPos.x - this.lastPanScreenPos.x;
@@ -1659,8 +1983,10 @@ class ExtendedWhiteboard {
         e.preventDefault();
 
         const rect = this.canvas.getBoundingClientRect();
-        const mouseX = e.clientX - rect.left;
-        const mouseY = e.clientY - rect.top;
+        const scaleX = rect.width ? this.canvas.width / rect.width : 1;
+        const scaleY = rect.height ? this.canvas.height / rect.height : 1;
+        const mouseX = (e.clientX - rect.left) * scaleX;
+        const mouseY = (e.clientY - rect.top) * scaleY;
 
         const zoomFactor = e.deltaY > 0 ? 0.85 : 1.15;
         this.zoomAt(mouseX, mouseY, zoomFactor);
@@ -1674,7 +2000,6 @@ class ExtendedWhiteboard {
         const canvasCenterX = (centerX - this.panOffset.x) / this.zoom;
         const canvasCenterY = (centerY - this.panOffset.y) / this.zoom;
 
-        const oldZoom = this.zoom;
         this.zoom = newZoom;
 
         const newPanOffsetX = centerX - canvasCenterX * this.zoom;
@@ -1691,9 +2016,6 @@ class ExtendedWhiteboard {
             newPanOffsetX - this.panOffset.x)) + this.panOffset.x;
         this.panOffset.y = Math.max(-maxPanChange, Math.min(maxPanChange,
             newPanOffsetY - this.panOffset.y)) + this.panOffset.y;
-
-        // TODO
-        console.log(`Zoom: ${oldZoom.toFixed(3)} → ${this.zoom.toFixed(3)}, Pan: (${this.panOffset.x.toFixed(0)}, ${this.panOffset.y.toFixed(0)})`);
 
         this.constrainPanOffset();
 
